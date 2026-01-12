@@ -17,10 +17,9 @@ const storage = multer.diskStorage({
         cb(null, uploadPath);
     },
     filename: (req, file, cb) => {
-        // Preserve original filename
-        // To avoid overwriting, we could append timestamp, but requirement implies simple overwrite or existing check logic 
-        // For now, keeping original name as per original request
-        cb(null, file.originalname);
+        // Appending timestamp to ensure uniqueness on disk
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, uniqueSuffix + '-' + file.originalname);
     }
 });
 
@@ -32,9 +31,9 @@ const upload = multer({
 // Routes
 router.get('/files', fileController.getFiles);
 router.post('/files/upload', upload.array('files'), fileController.uploadFiles);
-router.get('/files/download/:filename', fileController.downloadFile);
-router.delete('/files/:filename', fileController.deleteFile);
-router.put('/files/:filename', fileController.renameFile);
+router.get('/files/download', fileController.downloadFile);
+router.delete('/files', fileController.deleteFile);
+router.put('/files', fileController.renameFile);
 router.post('/folders', fileController.createFolder);
 // Storage Info
 router.get('/storage', fileController.getStorageInfo);

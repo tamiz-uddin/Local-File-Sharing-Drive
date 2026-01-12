@@ -33,49 +33,65 @@ const db = {
 
     addFile: (fileMetadata) => {
         const data = readDB();
+        const id = Date.now().toString() + '-' + Math.random().toString(36).substr(2, 9);
         data.files.push({
             ...fileMetadata,
-            id: Date.now().toString(), // Simple ID generation
+            id: id,
             uploadedAt: new Date().toISOString()
         });
         writeDB(data);
     },
 
-    removeFile: (filename, folderPath = '') => {
+    removeFile: (id) => {
         const data = readDB();
-        // Path logic needs to match how we store it.
-        // We'll store 'path' as 'folder/subfolder'
-        data.files = data.files.filter(f =>
-            !(f.name === filename && f.path === folderPath)
-        );
+        const fileToRemove = data.files.find(f => f.id === id);
+        data.files = data.files.filter(f => f.id !== id);
         writeDB(data);
+        return fileToRemove;
     },
 
-    // When a folder is deleted, we should remove all files in it recursively?
-    // For simplicity, we might just track individual files. 
-    // If a physical folder delete happens, we can clean up DB or leave potential orphans if strict sync isn't critical for MVP.
-    // Let's try to remove by prefix for folder deletion.
     removeFolder: (folderPath) => {
         const data = readDB();
-        // Remove valid files that are temporally exactly the folder path or start with it? 
-        // Actually, files inside 'folder' have path 'folder' or 'folder/sub'.
         const prefix = folderPath ? folderPath + '/' : '';
 
         data.files = data.files.filter(f => {
             const isExact = f.path === folderPath;
-            const isChild = f.path.startsWith(prefix); // e.g., 'folder/sub' starts with 'folder/'
+            const isChild = f.path.startsWith(prefix);
             return !isExact && !isChild;
         });
         writeDB(data);
     },
 
-    renameFile: (oldName, newName, folderPath = '') => {
+    renameFile: (id, newName) => {
         const data = readDB();
-        const file = data.files.find(f => f.name === oldName && f.path === folderPath);
+        const file = data.files.find(f => f.id === id);
         if (file) {
+            const oldName = file.name;
+            const isFolder = file.isDirectory;
+            const parentPath = file.path;
+
+            // Update the record itself
             file.name = newName;
+
+            if (isFolder) {
+                // If it's a folder, we need to update the path of all contents
+                // The logical path of this folder was: parentPath ? `${parentPath}/${oldName}` : oldName
+                const oldFolderPath = parentPath ? `${parentPath}/${oldName}` : oldName;
+                const newFolderPath = parentPath ? `${parentPath}/${newName}` : newName;
+
+                data.files.forEach(f => {
+                    if (f.path === oldFolderPath) {
+                        f.path = newFolderPath;
+                    } else if (f.path.startsWith(oldFolderPath + '/')) {
+                        f.path = f.path.replace(oldFolderPath + '/', newFolderPath + '/');
+                    }
+                });
+            }
+
             writeDB(data);
+            return true;
         }
+        return false;
     },
 
     getStats: () => {

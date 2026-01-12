@@ -57,7 +57,6 @@ const fileController = {
     getFiles: (req, res) => {
         try {
             const requestedPath = req.query.path || '';
-            // Sanitize path to prevent directory traversal
             const safePath = requestedPath.replace(/\.\./g, '');
             const currentDir = path.join(STORAGE_PATH, safePath);
 
@@ -65,29 +64,34 @@ const fileController = {
                 return res.status(404).json({ success: false, message: 'Directory not found' });
             }
 
-            const items = fs.readdirSync(currentDir);
+            // Primary source is DB for regular files, but folders still need readdir for sub-items?
+            // Actually, let's stick to the DB-first approach for metadata accuracy
+            const allDbFiles = db.getAllFiles();
+            const currentPathFiles = allDbFiles.filter(f => f.path === safePath);
 
-            // Get DB metadata to merge
-            const dbFiles = db.getAllFiles();
+            // Also check disk to ensure files still exist (optional but good for sync)
+            const diskItems = fs.readdirSync(currentDir);
 
-            const fileList = items.map(item => {
-                const fullPath = path.join(currentDir, item);
-                const stats = fs.statSync(fullPath);
+            const fileList = currentPathFiles.map(metadata => {
+                const systemName = metadata.systemName || metadata.name;
+                const fullPath = path.join(currentDir, systemName);
+                let stats = { size: 0, isDirectory: () => false, birthtime: new Date() };
 
-                // Find metadata for this file
-                // db stores path as relative logical path (e.g., 'folder/subfolder')
-                // requestedPath is also the logical path
-                const metadata = dbFiles.find(f => f.name === item && f.path === safePath);
+                if (fs.existsSync(fullPath)) {
+                    stats = fs.statSync(fullPath);
+                }
 
                 return {
-                    id: metadata?.id || fileIdCounter++, // Use persistent ID if available
-                    name: item,
-                    size: stats.size,
-                    type: stats.isDirectory() ? 'folder' : path.extname(item).slice(1) || 'unknown',
-                    createdDate: metadata?.uploadedAt || stats.birthtime, // Prefer upload date
-                    isDirectory: stats.isDirectory(),
-                    ownerIp: metadata?.ownerIp, // CRITICAL: Send owner IP to frontend
-                    ...metadata // Merge other potential metadata
+                    id: metadata.id,
+                    name: metadata.name,
+                    size: metadata.size || stats.size,
+                    type: metadata.type || (stats.isDirectory() ? 'folder' : path.extname(metadata.name).slice(1) || 'unknown'),
+                    createdDate: metadata.uploadedAt || stats.birthtime,
+                    isDirectory: metadata.isDirectory || stats.isDirectory(),
+                    ownerIp: metadata.ownerIp,
+                    ownerUsername: metadata.ownerUsername,
+                    ownerId: metadata.ownerId,
+                    ...metadata
                 };
             });
 
@@ -116,13 +120,16 @@ const fileController = {
             // Emit Update
             await emitUpdates(req, safePath);
 
-            // Record folder metadata with Owner IP
+            // Record folder metadata with Owner info
             db.addFile({
                 name: name,
                 size: 0,
                 type: 'folder',
                 path: safePath,
-                ownerIp: req.clientIp, // SAVE OWNER IP
+                ownerId: req.user?.id,
+                ownerName: req.user?.name || req.user?.username,
+                ownerUsername: req.user?.username, // SAVE OWNER USERNAME
+                ownerIp: req.clientIp,
                 isDirectory: true
             });
 
@@ -143,14 +150,22 @@ const fileController = {
             const currentPath = req.body.path || '';
 
             // Record metadata in JSON DB
+            console.log(`[UPLOAD] Processing ${req.files.length} files for user:`, req.user?.username);
+
             req.files.forEach(file => {
-                db.addFile({
+                const metadata = {
                     name: file.originalname,
+                    systemName: file.filename,
                     size: file.size,
                     type: path.extname(file.originalname).slice(1),
-                    path: currentPath, // Store the logical folder path
-                    ownerIp: req.clientIp // SAVE OWNER IP
-                });
+                    path: currentPath,
+                    ownerId: req.user?.id,
+                    ownerName: req.user?.name || req.user?.username,
+                    ownerUsername: req.user?.username,
+                    ownerIp: req.clientIp
+                };
+                console.log(`[UPLOAD] Adding file to DB: ${metadata.name}, Owner: ${metadata.ownerUsername}`);
+                db.addFile(metadata);
             });
 
             // Emit Update
@@ -166,15 +181,22 @@ const fileController = {
     // Download File
     downloadFile: (req, res) => {
         try {
-            const filename = req.params.filename;
-            const requestedPath = req.query.path || '';
-            const safePath = requestedPath.replace(/\.\./g, '');
-            const filePath = path.join(STORAGE_PATH, safePath, filename);
+            const id = req.query.id;
+            const allFiles = db.getAllFiles();
+            const fileRecord = allFiles.find(f => f.id === id);
+
+            if (!fileRecord) {
+                return res.status(404).json({ success: false, message: 'File not found' });
+            }
+
+            const safePath = fileRecord.path.replace(/\.\./g, '');
+            const systemName = fileRecord.systemName || fileRecord.name;
+            const filePath = path.join(STORAGE_PATH, safePath, systemName);
 
             if (fs.existsSync(filePath)) {
-                res.download(filePath);
+                res.download(filePath, fileRecord.name); // Download with display name
             } else {
-                res.status(404).json({ success: false, message: 'File not found' });
+                res.status(404).json({ success: false, message: 'File not found on disk' });
             }
         } catch (error) {
             console.error(error);
@@ -185,53 +207,48 @@ const fileController = {
     // Delete File or Folder
     deleteFile: async (req, res) => {
         try {
-            const filename = req.params.filename;
-            const requestedPath = req.query.path || '';
-            const safePath = requestedPath.replace(/\.\./g, '');
-            const filePath = path.join(STORAGE_PATH, safePath, filename);
+            const id = req.query.id; // Switch to ID-based deletion
+            const allFiles = db.getAllFiles();
+            const fileRecord = allFiles.find(f => f.id === id);
 
+            if (!fileRecord) {
+                return res.status(404).json({ success: false, message: 'File record not found' });
+            }
+
+            const safePath = fileRecord.path.replace(/\.\./g, '');
+            const systemName = fileRecord.systemName || fileRecord.name;
+            const filePath = path.join(STORAGE_PATH, safePath, systemName);
+
+            // PERMISSION CHECK
+            console.log(`[DELETE] Request from User: ${req.user?.username} (${req.user?.id}), IP: ${req.clientIp}, Admin: ${req.isAdmin}`);
+            console.log(`[DELETE] File ID: ${id}, Name: ${fileRecord.name}, Owner: ${fileRecord.ownerUsername || fileRecord.ownerIp}`);
+
+            const isOwner = req.user && (fileRecord.ownerId === req.user.id || fileRecord.ownerUsername === req.user.username);
+            const isIpMatch = fileRecord.ownerIp === req.clientIp;
+
+            if (!isOwner && !isIpMatch && !req.isAdmin) {
+                console.log(`[DELETE] Permission DENIED`);
+                return res.status(403).json({ success: false, message: 'Permission denied: You do not own this file.' });
+            }
+
+            // Perform Deletion
             if (fs.existsSync(filePath)) {
                 const stats = fs.statSync(filePath);
-
-                // PERMISSION CHECK
-                // 1. Find file metadata
-                const logicalFolderPath = safePath; // For file
-                const dbData = db.getAllFiles();
-                const fileRecord = dbData.find(f => f.name === filename && f.path === logicalFolderPath);
-
-                console.log(`[DELETE] Request from IP: ${req.clientIp}, Admin: ${req.isAdmin}`);
-                console.log(`[DELETE] File: ${filename}, Path: ${logicalFolderPath}, Owner: ${fileRecord?.ownerIp}`);
-
-                // 2. Check Ownership
-                // If record exists, check IP. (Legacy files without IP might need policy: allow or deny? Plan says allow for now, or maybe only Admin can delete legacy? Let's allow legacy for now.)
-                if (fileRecord && fileRecord.ownerIp) {
-                    if (fileRecord.ownerIp !== req.clientIp && !req.isAdmin) {
-                        console.log(`[DELETE] Permission DENIED`);
-                        return res.status(403).json({ success: false, message: 'Permission denied: You do not own this file.' });
-                    }
-                } else if (!fileRecord) {
-                    console.log(`[DELETE] Warning: File record not found in DB`);
-                }
-
                 if (stats.isDirectory()) {
                     fs.rmSync(filePath, { recursive: true, force: true });
-                    // Remove related entries from DB
-                    const logicalFolderPath = safePath ? `${safePath}/${filename}` : filename;
+                    const logicalFolderPath = safePath ? `${safePath}/${fileRecord.name}` : fileRecord.name;
                     db.removeFolder(logicalFolderPath);
-                    // Also remove the folder entry itself
-                    db.removeFile(filename, safePath);
                 } else {
                     fs.unlinkSync(filePath);
-                    db.removeFile(filename, safePath);
                 }
-
-                // Emit Update
-                await emitUpdates(req, safePath);
-
-                res.json({ success: true, message: 'Deleted successfully' });
-            } else {
-                res.status(404).json({ success: false, message: 'File not found' });
             }
+
+            db.removeFile(id);
+
+            // Emit Update
+            await emitUpdates(req, safePath);
+
+            res.json({ success: true, message: 'Deleted successfully' });
         } catch (error) {
             console.error(error);
             res.status(500).json({ success: false, message: 'Server Error' });
@@ -241,41 +258,46 @@ const fileController = {
     // Rename File
     renameFile: async (req, res) => {
         try {
-            const oldFilename = req.params.filename;
-            const { newName, currentPath = '' } = req.body;
+            const id = req.query.id;
+            const { newName } = req.body;
 
-            const safePath = currentPath.replace(/\.\./g, '');
-            const oldPath = path.join(STORAGE_PATH, safePath, oldFilename);
-            const newPath = path.join(STORAGE_PATH, safePath, newName);
+            const allFiles = db.getAllFiles();
+            const fileRecord = allFiles.find(f => f.id === id);
 
-            if (fs.existsSync(oldPath)) {
-
-                // PERMISSION CHECK
-                const dbData = db.getAllFiles();
-                const fileRecord = dbData.find(f => f.name === oldFilename && f.path === safePath);
-
-                console.log(`[RENAME] Request from IP: ${req.clientIp}, Admin: ${req.isAdmin}`);
-                console.log(`[RENAME] File: ${oldFilename}, Path: ${safePath}, Owner: ${fileRecord?.ownerIp}`);
-
-                if (fileRecord && fileRecord.ownerIp) {
-                    if (fileRecord.ownerIp !== req.clientIp && !req.isAdmin) {
-                        console.log(`[RENAME] Permission DENIED`);
-                        return res.status(403).json({ success: false, message: 'Permission denied: You do not own this file.' });
-                    }
-                } else if (!fileRecord) {
-                    console.log(`[RENAME] Warning: File record not found in DB`);
-                }
-
-                fs.renameSync(oldPath, newPath);
-                db.renameFile(oldFilename, newName, safePath);
-
-                // Emit Update
-                await emitUpdates(req, safePath);
-
-                res.json({ success: true, message: 'Renamed successfully' });
-            } else {
-                res.status(404).json({ success: false, message: 'File not found' });
+            if (!fileRecord) {
+                return res.status(404).json({ success: false, message: 'File record not found' });
             }
+
+            const safePath = fileRecord.path.replace(/\.\./g, '');
+            const systemName = fileRecord.systemName || fileRecord.name;
+            const oldPath = path.join(STORAGE_PATH, safePath, systemName);
+
+            // For renaming, we only change the display name in DB unless it's a folder.
+            // If it's a folder, we HAVE to rename the disk path too.
+            const isFolder = fileRecord.isDirectory;
+
+            // PERMISSION CHECK
+            const isOwner = req.user && (fileRecord.ownerId === req.user.id || fileRecord.ownerUsername === req.user.username);
+            const isIpMatch = fileRecord.ownerIp === req.clientIp;
+
+            if (!isOwner && !isIpMatch && !req.isAdmin) {
+                return res.status(403).json({ success: false, message: 'Permission denied' });
+            }
+
+            if (isFolder) {
+                const newPath = path.join(STORAGE_PATH, safePath, newName);
+                if (fs.existsSync(newPath)) {
+                    return res.status(400).json({ success: false, message: 'Folder already exists on disk' });
+                }
+                fs.renameSync(oldPath, newPath);
+            }
+
+            db.renameFile(id, newName);
+
+            // Emit Update
+            await emitUpdates(req, safePath);
+
+            res.json({ success: true, message: 'Renamed successfully' });
         } catch (error) {
             console.error(error);
             res.status(500).json({ success: false, message: 'Server Error' });

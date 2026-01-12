@@ -211,6 +211,7 @@ const Dashboard = () => {
                                 <th className="pb-3 font-medium">Type</th>
                                 <th className="pb-3 font-medium">Size</th>
                                 <th className="pb-3 font-medium">Date</th>
+                                <th className="pb-3 font-medium">Owner</th>
                             </tr>
                         </thead>
                         <tbody className="text-sm">
@@ -232,6 +233,9 @@ const Dashboard = () => {
                                         <td className="py-3 text-gray-500 flex items-center gap-1">
                                             <Clock size={14} />
                                             {new Date(file.uploadedAt).toLocaleDateString()}
+                                        </td>
+                                        <td className="py-3 text-gray-500">
+                                            {file.ownerUsername || file.ownerName || 'Anonymous'}
                                         </td>
                                     </tr>
                                 ))

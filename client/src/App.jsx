@@ -4,45 +4,25 @@ import { Check, File } from 'lucide-react';
 import MainLayout from './layouts/MainLayout';
 import Drive from './pages/Drive';
 import Dashboard from './pages/Dashboard';
+import Chat from './pages/Chat';
+import Login from './pages/Login';
+import Register from './pages/Register';
 import { fileAPI } from './services/api';
+import { AuthProvider, useAuth } from './context/AuthContext';
 
-function App() {
+function AppContent() {
   const [searchQuery, setSearchQuery] = useState('');
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
-  const [triggerUpload, setTriggerUpload] = useState(null); // To trigger upload from sidebar
+  const [triggerUpload, setTriggerUpload] = useState(null);
   const [storageInfo, setStorageInfo] = useState({ used: 0, total: 0, free: 0 });
-  const [user, setUser] = useState({ ip: '', isAdmin: false });
+  const { user, isAuthenticated, loading, logout } = useAuth();
 
-  // Load storage info and identity globally
   useEffect(() => {
-    loadStorageInfo();
-    loadIdentity();
-  }, []);
-
-  const loadIdentity = async () => {
-    try {
-      const data = await fileAPI.getIdentity();
-      setUser(data);
-    } catch (error) {
-      console.error("Failed to load identity", error);
+    if (isAuthenticated) {
+      loadStorageInfo();
     }
-  };
-
-  const toggleAdmin = () => {
-    if (user.isAdmin) {
-      localStorage.removeItem('adminAuth');
-      loadIdentity();
-    } else {
-      const password = prompt("Enter Admin Password:");
-      if (password === 'admin') {
-        localStorage.setItem('adminAuth', 'admin');
-        loadIdentity();
-      } else if (password) {
-        alert("Incorrect Password");
-      }
-    }
-  };
+  }, [isAuthenticated]);
 
   const loadStorageInfo = async () => {
     try {
@@ -59,8 +39,8 @@ function App() {
     setIsUploading(true);
     try {
       await fileAPI.uploadFiles(fileList, pathStr, (progress) => setUploadProgress(progress));
-      await refreshCallback(); // Refresh the file list in the active view
-      loadStorageInfo(); // Update storage
+      await refreshCallback();
+      loadStorageInfo();
     } catch (error) {
       console.error("Upload failed", error);
     } finally {
@@ -73,54 +53,66 @@ function App() {
     setTriggerUpload(fileList);
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F8F9FA]">
+        <div className="spinner-lg"></div>
+      </div>
+    );
+  }
+
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={
+    <Routes>
+      <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to="/dashboard" />} />
+      <Route path="/register" element={!isAuthenticated ? <Register /> : <Navigate to="/dashboard" />} />
+
+      <Route path="/" element={
+        isAuthenticated ? (
           <MainLayout
             storageInfo={storageInfo}
             handleUpload={handleSidebarUpload}
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
-            user={user}
-            toggleAdmin={toggleAdmin}
+            user={{ ...user, isAdmin: user?.role === 'admin' }}
+            toggleAdmin={logout} // Use logout for now as placeholder for account management
           />
-        }>
-          <Route index element={<Navigate to="/dashboard" replace />} />
-          <Route path="dashboard" element={<Dashboard />} />
-          <Route path="my-drive/*" element={
-            <Drive
-              searchQuery={searchQuery}
-              triggerUpload={triggerUpload}
-              setTriggerUpload={setTriggerUpload}
-              onUploadComplete={onUploadComplete}
-              user={user}
-            />
-          } />
-        </Route>
-      </Routes>
+        ) : (
+          <Navigate to="/login" />
+        )
+      }>
+        <Route index element={<Navigate to="/dashboard" replace />} />
+        <Route path="dashboard" element={<Dashboard />} />
+        <Route path="my-drive/*" element={
+          <Drive
+            searchQuery={searchQuery}
+            triggerUpload={triggerUpload}
+            setTriggerUpload={setTriggerUpload}
+            onUploadComplete={onUploadComplete}
+            user={{ ...user, isAdmin: user?.role === 'admin' }}
+          />
+        } />
+        <Route path="chat" element={<Chat />} />
+      </Route>
 
-      {/* Global Upload Progress Toast */}
-      {isUploading && (
-        <div className="fixed bottom-6 right-6 bg-white rounded-xl shadow-floating w-80 overflow-hidden z-50 border border-gray-100">
-          <div className="bg-[#323232] px-4 py-3 flex items-center justify-between text-white">
-            <span className="text-sm font-medium">Uploading {uploadProgress < 100 ? '...' : 'Complete'}</span>
-            {uploadProgress === 100 ? <Check size={18} /> : <div className="spinner-sm"></div>}
-          </div>
-          <div className="p-4">
-            <div className="flex items-center gap-3">
-              <File size={20} className="text-blue-500" />
-              <div className="flex-1">
-                <div className="h-1 bg-gray-200 rounded-full overflow-hidden">
-                  <div className="h-full bg-blue-600 transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Global Elements moved inside so they have access to state if needed */}
+    </Routes>
+  );
+}
+
+function App() {
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
+
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <AppContent />
+
+        {/* Global Upload Progress Toast - kept outside if it needs its own state or can be passed down */}
+      </AuthProvider>
     </BrowserRouter>
   );
 }
 
 export default App;
+

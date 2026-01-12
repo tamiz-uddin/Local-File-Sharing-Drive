@@ -89,7 +89,7 @@ const FileCard = ({ file, currentPath = '', viewMode, user, onDownload, onDelete
     const handleRenameSubmit = async (e) => {
         if (e.key === 'Enter') {
             if (newName && newName !== file.name) {
-                await onRename(file.name, newName);
+                await onRename(file.id, newName);
             }
             setIsRenaming(false);
         }
@@ -100,8 +100,9 @@ const FileCard = ({ file, currentPath = '', viewMode, user, onDownload, onDelete
     const { icon: FileIcon, color, bg } = getFileDesign(file.type);
 
     // Permission Check
-    const canEdit = user?.isAdmin || file.ownerIp === user?.ip;
-    // console.log(`[FileCard] File: ${file.name}, UserIP: ${user?.ip}, OwnerIP: ${file.ownerIp}, CanEdit: ${canEdit}`);
+    const isOwner = user && (file.ownerId === user.id || file.ownerUsername === user.username);
+    const isIpMatch = file.ownerIp === user?.ip; // Fallback for legacy
+    const canEdit = user?.role === 'admin' || isOwner || isIpMatch;
     const canDownload = file?.isDirectory ? false : true;
     const handleDoubleClick = () => {
         if (isFolder) {
@@ -114,7 +115,7 @@ const FileCard = ({ file, currentPath = '', viewMode, user, onDownload, onDelete
     // --- Dropdown Menu Component ---
     const ActionMenu = () => {
 
-        return <div className="absolute right-2 top-8 z-30 w-48 bg-white/90 backdrop-blur-xl rounded-xl shadow-2xl py-2 border border-white/40 animate-scale-in origin-top-right">
+        return <div className="absolute right-2 top-8 z-[999] w-48 bg-white/90 backdrop-blur-xl rounded-xl shadow-2xl py-2 border border-white/40 animate-scale-in origin-top-right">
             {isImage && (
                 <button onClick={() => onPreview(file)} className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-black/5 flex items-center gap-3 transition-colors">
                     <FileImage className="w-4 h-4 text-purple-600" /> Preview
@@ -122,7 +123,7 @@ const FileCard = ({ file, currentPath = '', viewMode, user, onDownload, onDelete
             )}
             {
                 canDownload && (
-                    <button onClick={() => onDownload(file.name)} className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-black/5 flex items-center gap-3 transition-colors">
+                    <button onClick={() => onDownload(file.id)} className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-black/5 flex items-center gap-3 transition-colors">
                         <Download className="w-4 h-4 text-blue-600" /> Download
                     </button>
                 )
@@ -134,7 +135,7 @@ const FileCard = ({ file, currentPath = '', viewMode, user, onDownload, onDelete
                         <Edit2 className="w-4 h-4 text-orange-600" /> Rename
                     </button>
                     <div className="h-px bg-gray-100 my-1"></div>
-                    <button onClick={() => onDelete(file.name)} className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-3 transition-colors">
+                    <button onClick={() => onDelete(file.id)} className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-3 transition-colors">
                         <Trash2 className="w-4 h-4" /> Delete
                     </button>
                 </>
@@ -147,6 +148,7 @@ const FileCard = ({ file, currentPath = '', viewMode, user, onDownload, onDelete
         return (
             <div
                 className="group relative flex items-center gap-4 px-4 py-3 bg-white rounded-xl hover:shadow-sm border border-transparent hover:border-gray-100 transition-all duration-200 cursor-pointer select-none mb-2"
+                style={{ zIndex: showMenu ? 50 : 'auto' }}
                 onDoubleClick={handleDoubleClick}
             >
                 <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${isFolder ? 'bg-blue-50 text-blue-600' : bg + ' ' + color}`}>
@@ -198,7 +200,8 @@ const FileCard = ({ file, currentPath = '', viewMode, user, onDownload, onDelete
     // --- Grid View ---
     return (
         <div
-            className="group relative bg-white rounded-2xl shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-gray-100 flex flex-col select-none h-[220px]"
+            className="group relative bg-white rounded-2xl shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-gray-100 flex flex-col select-none h-[220px] hover:z-10"
+            style={{ zIndex: showMenu ? 50 : undefined }}
             onDoubleClick={handleDoubleClick}
         >
             {/* Preview Section */}
@@ -206,7 +209,7 @@ const FileCard = ({ file, currentPath = '', viewMode, user, onDownload, onDelete
                 {/* Image Preview */}
                 {isImage ? (
                     <img
-                        src={fileAPI.getPreviewUrl(file.name, currentPath)}
+                        src={fileAPI.getPreviewUrl(file.systemName || file.name, currentPath)}
                         alt=""
                         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-90 group-hover:opacity-100 rounded-t-2xl"
                         onError={(e) => { e.target.style.display = 'none' }}
@@ -251,8 +254,10 @@ const FileCard = ({ file, currentPath = '', viewMode, user, onDownload, onDelete
                             <p className="text-sm font-bold text-gray-800 truncate group-hover:text-blue-600 transition-colors" title={file.name}>
                                 {file.name}
                             </p>
-                            <span className="text-[10px] text-gray-400 font-medium">
-                                {isFolder ? formatDate(file.createdDate) : formatSize(file.size)}
+                            <span className="text-[10px] text-gray-400 font-medium flex items-center gap-1.5 truncate">
+                                <span>{isFolder ? formatDate(file.createdDate) : formatSize(file.size)}</span>
+                                <span className="w-1 h-1 bg-gray-300 rounded-full flex-shrink-0"></span>
+                                <span className="truncate">By {file.ownerUsername || 'Guest'}</span>
                             </span>
                         </div>
                     )}

@@ -1,19 +1,18 @@
 import React, { useState } from 'react';
-import { HardDrive, Plus, HelpCircle, Search, Settings, LayoutDashboard, Menu, X } from 'lucide-react';
+import { HardDrive, Plus, HelpCircle, Search, Settings, LayoutDashboard, Menu, X, MessageCircle, CloudCog, LogOut } from 'lucide-react';
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '../context/AuthContext';
 
 const MainLayout = ({
     storageInfo,
     handleUpload,
     searchQuery,
-    setSearchQuery,
-    user,
-    toggleAdmin
+    setSearchQuery
 }) => {
     const location = useLocation();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
+    const { user, logout } = useAuth();
     // Check if we are in Drive view
     const isDriveActive = location.pathname.startsWith('/my-drive');
 
@@ -45,10 +44,10 @@ const MainLayout = ({
                 {/* Logo */}
                 <div className="flex items-center gap-3 px-2">
                     <div className="w-10 h-10 flex items-center justify-center bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl text-white shadow-lg shadow-blue-200">
-                        <HardDrive size={22} />
+                        <img src="/kodevio.png" alt="logo" width={50} />
                     </div>
                     <div>
-                        <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-700">L-Drive</span>
+                        <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-700">K-Drive</span>
                         <span className="text-[10px] block text-blue-600 font-semibold tracking-wider">NEXTGEN</span>
                     </div>
                     <button className="md:hidden ml-auto text-gray-500" onClick={() => setIsMobileMenuOpen(false)}>
@@ -85,6 +84,14 @@ const MainLayout = ({
                         <HardDrive size={20} />
                         <span className="font-medium">My Drive</span>
                     </NavLink>
+
+                    <NavLink
+                        to="/chat"
+                        className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${isActive ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'text-gray-600 hover:bg-white hover:shadow-sm'}`}
+                    >
+                        <MessageCircle size={20} />
+                        <span className="font-medium">Chat</span>
+                    </NavLink>
                 </nav>
 
                 {/* Storage Widget */}
@@ -109,15 +116,21 @@ const MainLayout = ({
                     <div className="pt-3 border-t border-gray-200">
                         <div className="flex items-center justify-between">
                             <div className="text-xs text-gray-500">
-                                <p>IP: {user?.ip || 'Loading...'}</p>
-                                {user?.isAdmin ? <span className="text-green-600 font-bold">Admin Mode</span> : <span className="text-gray-400">Guest</span>}
+                                <p className="font-semibold text-gray-700">User: {user?.username || 'Loading...'}</p>
+                                {user?.role === 'admin' ? (
+                                    <span className="text-green-600 font-bold">Admin Mode</span>
+                                ) : (
+                                    <span className="text-blue-600 font-medium capitalize">{user?.role || 'User'}</span>
+                                )}
                             </div>
                             <button
-                                onClick={toggleAdmin}
-                                className={`text-xs px-2 py-1 rounded transition-colors ${user?.isAdmin ? 'bg-red-100 text-red-600 hover:bg-red-200' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}`}
+                                onClick={logout}
+                                className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                                title="Logout"
                             >
-                                {user?.isAdmin ? 'Logout' : 'Admin'}
+                                <LogOut size={18} />
                             </button>
+
                         </div>
                     </div>
                 </div>

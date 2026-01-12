@@ -1,0 +1,20 @@
+[
+  {
+    "id": "1768216327110",
+    "name": "Tamiz Uddin",
+    "email": "tamizrabbi@gmail.com",
+    "username": "tamizuddin",
+    "password": "$2b$10$KRiT8ErNDQa.G7TaBuS1uuYRonrpqI5cy4ibf3nVmW/kQ7AlQAlWm",
+    "role": "admin",
+    "createdAt": "2026-01-12T11:12:07.110Z"
+  },
+  {
+    "id": "1768217603912",
+    "name": "Test",
+    "email": "test@gmail.com",
+    "username": "test",
+    "password": "$2b$10$JxdyQxKFU2w6CsibMtkh8u7xisxlctw8aSg6xAO2Tias6ds9DnAXy",
+    "role": "user",
+    "createdAt": "2026-01-12T11:33:23.912Z"
+  }
+]

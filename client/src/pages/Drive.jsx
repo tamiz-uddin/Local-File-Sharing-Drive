@@ -5,17 +5,18 @@ import { Grid, List, ChevronRight, Upload, X, ArrowLeft, FolderPlus, Cloud } fro
 import { fileAPI } from '../services/api';
 import FileCard from '../components/FileCard';
 import { socket } from '../services/socket';
+import { useAuth } from '../context/AuthContext';
 
 // Simple icon component for the overlay
 const CloudArrowUp = ({ size, className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242" /><path d="M12 12v9" /><path d="m16 16-4-4-4 4" /></svg>
 );
 
-const Drive = ({ searchQuery, triggerUpload, setTriggerUpload, onUploadComplete, user }) => {
+const Drive = ({ searchQuery, triggerUpload, setTriggerUpload, onUploadComplete }) => {
     const { '*': pathParam } = useParams();
     const navigate = useNavigate();
     const location = useLocation();
-
+    const { user } = useAuth();
     // Parse current path from URL wildcard
     const currentPath = pathParam ? pathParam.split('/') : [];
 
@@ -54,8 +55,9 @@ const Drive = ({ searchQuery, triggerUpload, setTriggerUpload, onUploadComplete,
     // Handle external upload trigger (from Sidebar)
     useEffect(() => {
         if (triggerUpload) {
-            handleUpload(triggerUpload);
-            setTriggerUpload(null); // Reset trigger
+            const filesToUpload = triggerUpload;
+            setTriggerUpload(null); // Clear first to prevent re-triggering during upload
+            handleUpload(filesToUpload);
         }
     }, [triggerUpload]);
 
@@ -137,20 +139,18 @@ const Drive = ({ searchQuery, triggerUpload, setTriggerUpload, onUploadComplete,
     };
 
     const handleFileAction = {
-        download: (name) => {
-            const pathStr = currentPath.join('/');
-            fileAPI.downloadFile(name, pathStr);
+        download: (id) => {
+            fileAPI.downloadFile(id);
         },
-        delete: async (name) => {
-            if (confirm(`Are you sure you want to delete "${name}" ? `)) {
-                const pathStr = currentPath.join('/');
-                await fileAPI.deleteFile(name, pathStr);
+        delete: async (id) => {
+            const file = files.find(f => f.id === id);
+            if (confirm(`Are you sure you want to delete "${file?.name || 'this file'}"?`)) {
+                await fileAPI.deleteFile(id);
                 loadFiles();
             }
         },
-        rename: async (oldName, newName) => {
-            const pathStr = currentPath.join('/');
-            await fileAPI.renameFile(oldName, newName, pathStr);
+        rename: async (id, newName) => {
+            await fileAPI.renameFile(id, newName);
             loadFiles();
         },
         preview: (file) => {
@@ -315,7 +315,7 @@ const Drive = ({ searchQuery, triggerUpload, setTriggerUpload, onUploadComplete,
                         <X size={32} />
                     </button>
                     <img
-                        src={fileAPI.getPreviewUrl(previewFile.name, currentPath.join('/'))}
+                        src={fileAPI.getPreviewUrl(previewFile.systemName || previewFile.name, currentPath.join('/'))}
                         alt={previewFile.name}
                         className="max-w-full max-h-[85vh] object-contain rounded-md"
                         onClick={(e) => e.stopPropagation()}
