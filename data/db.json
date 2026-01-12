@@ -1,0 +1,40 @@
+{
+  "files": [
+    {
+      "name": "screencapture-localhost-8080-2026-01-12-13_17_46.png",
+      "size": 4941759,
+      "type": "png",
+      "path": "",
+      "ownerIp": "10.10.10.2",
+      "id": "1768204327510",
+      "uploadedAt": "2026-01-12T07:52:07.510Z"
+    },
+    {
+      "name": "screencapture-localhost-8080-2026-01-12-13_17_46.png",
+      "size": 4941759,
+      "type": "png",
+      "path": "",
+      "ownerIp": "10.10.10.2",
+      "id": "1768204328701",
+      "uploadedAt": "2026-01-12T07:52:08.701Z"
+    },
+    {
+      "name": "favicon_io.zip",
+      "size": 87629,
+      "type": "zip",
+      "path": "",
+      "ownerIp": "10.10.10.3",
+      "id": "1768204927430",
+      "uploadedAt": "2026-01-12T08:02:07.430Z"
+    },
+    {
+      "name": "favicon_io.zip",
+      "size": 87629,
+      "type": "zip",
+      "path": "",
+      "ownerIp": "10.10.10.3",
+      "id": "1768204928789",
+      "uploadedAt": "2026-01-12T08:02:08.789Z"
+    }
+  ]
+}

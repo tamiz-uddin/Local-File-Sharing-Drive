@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-surface text-onSurface font-sans antialiased;
+  }
+}
+
+@layer components {
+
+  /* Google Drive-like FAB (Floating Action Button) */
+  .btn-new {
+    @apply flex items-center gap-3 bg-white hover:bg-surfaceHover text-secondaryText shadow-md hover:shadow-lg rounded-2xl px-4 py-4 transition-all duration-200 font-medium min-w-[120px];
+  }
+
+  .btn-icon {
+    @apply p-2 rounded-full hover:bg-black/5 text-secondaryText transition-colors;
+  }
+
+  .file-card {
+    @apply bg-surface rounded-xl p-3 border border-transparent hover:bg-surfaceHover cursor-pointer transition-colors relative;
+  }
+
+  .file-card-grid {
+    @apply bg-surface rounded-xl p-0 border border-border/50 hover:bg-surfaceHover cursor-pointer flex flex-col transition-colors overflow-hidden relative h-[220px];
+  }
+
+  .sidebar-link {
+    @apply flex items-center gap-3 px-3 py-1.5 rounded-full hover:bg-black/5 text-secondaryText text-sm font-medium transition-colors w-full text-left;
+  }
+
+  .sidebar-link.active {
+    @apply bg-primary/30 text-primaryText;
+  }
+
+  .search-bar {
+    @apply flex items-center gap-3 bg-[#E9EEF6] px-4 py-3 rounded-full w-full max-w-[700px] focus-within:bg-white focus-within:shadow-md transition-all duration-200;
+  }
+}
