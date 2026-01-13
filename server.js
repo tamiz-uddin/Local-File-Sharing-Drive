@@ -36,6 +36,47 @@ try {
   console.error('Error loading chat history:', error);
 }
 
+// Community Storage setup
+const COMMUNITIES_FILE = path.join(__dirname, 'data', 'communities.json');
+let communities = [];
+
+try {
+  if (fs.existsSync(COMMUNITIES_FILE)) {
+    const data = fs.readFileSync(COMMUNITIES_FILE, 'utf8');
+    communities = JSON.parse(data);
+
+    // Ensure data integrity: every community must have members and pendingRequests arrays
+    let changed = false;
+    communities.forEach(comm => {
+      if (!comm.members) {
+        comm.members = [];
+        changed = true;
+      }
+      if (!comm.pendingRequests) {
+        comm.pendingRequests = [];
+        changed = true;
+      }
+    });
+
+    if (changed) {
+      fs.writeFileSync(COMMUNITIES_FILE, JSON.stringify(communities, null, 2));
+    }
+  } else {
+    // Default system community
+    communities = [{
+      id: 'general',
+      name: 'General Chat',
+      creatorId: 'system',
+      createdAt: new Date().toISOString(),
+      members: [],
+      pendingRequests: []
+    }];
+    fs.writeFileSync(COMMUNITIES_FILE, JSON.stringify(communities, null, 2));
+  }
+} catch (error) {
+  console.error('Error loading communities:', error);
+}
+
 // Socket.IO setup
 const io = new Server(server, {
   cors: {
@@ -75,17 +116,134 @@ io.on('connection', (socket) => {
   // Store in socket data
   socket.data.ip = clientIp;
 
-  // Join room
+  // Join default room (IP based) or community
   socket.join(clientIp);
 
   console.log(`New client connected: ${socket.id} (IP: ${clientIp}, User: ${socket.data.username})`);
 
-  // Send chat history to the new client
-  socket.emit('chat-history', chatHistory);
+  // Send communities to the new client
+  socket.emit('community-list', communities);
 
-  // Manual history request (for instant loading when navigating)
-  socket.on('get-chat-history', () => {
-    socket.emit('chat-history', chatHistory);
+  // Community Management
+  socket.on('create-community', (data) => {
+    const newCommunity = {
+      id: `comm_${Date.now()}`,
+      name: data.name,
+      creatorId: socket.data.user ? socket.data.user.id : 'anonymous',
+      createdAt: new Date().toISOString(),
+      members: [socket.data.user ? socket.data.user.id : 'anonymous'],
+      pendingRequests: []
+    };
+    communities.push(newCommunity);
+    try {
+      fs.writeFileSync(COMMUNITIES_FILE, JSON.stringify(communities, null, 2));
+      io.emit('community-list', communities);
+    } catch (err) {
+      console.error('Error creating community:', err);
+    }
+  });
+
+  socket.on('delete-community', (communityId) => {
+    const commIndex = communities.findIndex(c => c.id === communityId);
+    if (commIndex !== -1) {
+      const community = communities[commIndex];
+      const isCreator = socket.data.user && socket.data.user.id === community.creatorId;
+      const isAdmin = socket.data.user && socket.data.user.role === 'admin';
+
+      if (isCreator || isAdmin) {
+        communities.splice(commIndex, 1);
+        chatHistory = chatHistory.filter(m => m.communityId !== communityId);
+
+        try {
+          fs.writeFileSync(COMMUNITIES_FILE, JSON.stringify(communities, null, 2));
+          fs.writeFileSync(CHAT_HISTORY_FILE, JSON.stringify(chatHistory, null, 2));
+          io.emit('community-list', communities);
+          io.emit('chat-history', chatHistory);
+        } catch (err) {
+          console.error('Error deleting community:', err);
+        }
+      }
+    }
+  });
+
+  socket.on('join-community', (communityId) => {
+    const rooms = Array.from(socket.rooms);
+    rooms.forEach(room => {
+      if (room.startsWith('comm_') || room === 'general') {
+        socket.leave(room);
+      }
+    });
+
+    socket.join(communityId);
+    console.log(`Socket ${socket.id} joined room: ${communityId}`);
+
+    // Security: Only allow members to see history
+    const userId = socket.data.user ? socket.data.user.id : null;
+    const community = communities.find(c => c.id === communityId);
+    const isMember = community?.members?.includes(userId);
+
+    if (isMember || communityId === 'general') {
+      const roomHistory = chatHistory.filter(m => m.communityId === communityId || (!m.communityId && communityId === 'general'));
+      socket.emit('chat-history', roomHistory);
+    } else {
+      socket.emit('chat-history', []);
+    }
+  });
+
+  socket.on('get-chat-history', (communityId) => {
+    const community = communities.find(c => c.id === communityId);
+    const userId = socket.data.user ? socket.data.user.id : null;
+    const isMember = community?.members?.includes(userId);
+
+    if (isMember) {
+      const roomHistory = chatHistory.filter(m => m.communityId === communityId || (!m.communityId && communityId === 'general'));
+      socket.emit('chat-history', roomHistory);
+    } else {
+      socket.emit('chat-history', []);
+    }
+  });
+
+  socket.on('request-join', (communityId) => {
+    const comm = communities.find(c => c.id === communityId);
+    if (!comm) return;
+    const userId = socket.data.user?.id;
+    if (!userId) return;
+    if (!comm.members) comm.members = [];
+    if (!comm.pendingRequests) comm.pendingRequests = [];
+    if (!comm.members.includes(userId) && !comm.pendingRequests.some(r => r.id === userId)) {
+      comm.pendingRequests.push({
+        id: userId,
+        username: socket.data.username,
+        name: socket.data.user.name,
+        requestedAt: new Date().toISOString()
+      });
+      try {
+        fs.writeFileSync(COMMUNITIES_FILE, JSON.stringify(communities, null, 2));
+        io.emit('community-list', communities);
+      } catch (err) {
+        console.error('Error saving join request:', err);
+      }
+    }
+  });
+
+  socket.on('review-join-request', ({ communityId, userId, action }) => {
+    const comm = communities.find(c => c.id === communityId);
+    if (!comm) return;
+    const isAdmin = socket.data.user?.role === 'admin';
+    const isCreator = socket.data.user?.id === comm.creatorId;
+    if (isAdmin || isCreator) {
+      if (action === 'approve') {
+        if (!comm.members) comm.members = [];
+        if (!comm.members.includes(userId)) comm.members.push(userId);
+      }
+      comm.pendingRequests = comm.pendingRequests.filter(r => r.id !== userId);
+      try {
+        fs.writeFileSync(COMMUNITIES_FILE, JSON.stringify(communities, null, 2));
+        io.emit('community-list', communities);
+      } catch (err) {
+        console.error('Error reviewing join request:', err);
+      }
+    }
   });
 
   socket.on('disconnect', () => {
@@ -94,6 +252,17 @@ io.on('connection', (socket) => {
 
   // Chat message listener
   socket.on('chat-message', (data) => {
+    const communityId = data.communityId || 'general';
+    const community = communities.find(c => c.id === communityId);
+
+    if (!community) return;
+
+    // Security: Must be a member to chat
+    const userId = socket.data.user ? socket.data.user.id : null;
+    if (!community.members?.includes(userId)) {
+      return console.log(`Blocked message from ${userId} in ${communityId} (Not a member)`);
+    }
+
     const chatMessage = {
       id: Date.now(),
       sender: clientIp,
@@ -101,11 +270,11 @@ io.on('connection', (socket) => {
       senderName: socket.data.user?.name || socket.data.username || data.senderName || 'Anonymous',
       senderRole: socket.data.user ? socket.data.user.role : 'user',
       text: data.text,
+      communityId: data.communityId || 'general',
       timestamp: new Date().toISOString(),
       deleted: false
     };
 
-    // Save to history
     chatHistory.push(chatMessage);
     try {
       fs.writeFileSync(CHAT_HISTORY_FILE, JSON.stringify(chatHistory, null, 2));
@@ -113,22 +282,19 @@ io.on('connection', (socket) => {
       console.error('Error saving chat message:', saveError);
     }
 
-    // Broadcast to all connected clients
-    io.emit('chat-message', chatMessage);
+    io.to(chatMessage.communityId).emit('chat-message', chatMessage);
   });
 
   // Delete message listener (soft delete)
   socket.on('delete-message', (messageId) => {
     const messageIndex = chatHistory.findIndex(m => m.id === messageId);
     if (messageIndex !== -1) {
-      // Security check: only allow sender or admin to delete
-      // For now, focusing on user requirement: "just update as deleted true"
       chatHistory[messageIndex].deleted = true;
 
       try {
         fs.writeFileSync(CHAT_HISTORY_FILE, JSON.stringify(chatHistory, null, 2));
-        // Broadcast the update to all clients
-        io.emit('chat-history', chatHistory);
+        const communityId = chatHistory[messageIndex].communityId || 'general';
+        io.to(communityId).emit('chat-history', chatHistory.filter(m => m.communityId === communityId || (!m.communityId && communityId === 'general')));
       } catch (saveError) {
         console.error('Error updating chat history for deletion:', saveError);
       }

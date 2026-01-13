@@ -1,0 +1,22 @@
+[
+  {
+    "id": "general",
+    "name": "General Chat",
+    "creatorId": "system",
+    "createdAt": "2026-01-12T12:07:36.929Z",
+    "members": [
+      "1768216327110"
+    ],
+    "pendingRequests": []
+  },
+  {
+    "id": "comm_1768297896508",
+    "name": "635",
+    "creatorId": "1768216327110",
+    "createdAt": "2026-01-13T09:51:36.508Z",
+    "members": [
+      "1768216327110"
+    ],
+    "pendingRequests": []
+  }
+]
