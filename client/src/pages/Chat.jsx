@@ -15,6 +15,8 @@ const Chat = () => {
     const [isRequestsModalOpen, setIsRequestsModalOpen] = useState(false);
     const [newCommName, setNewCommName] = useState('');
 
+    const [modal, contextHolder] = Modal.useModal();
+
     const { user } = useAuth();
     const messagesEndRef = useRef(null);
 
@@ -25,6 +27,7 @@ const Chat = () => {
     useEffect(() => {
         // Initial join and fetch
         socket.emit('join-community', activeCommunity);
+        socket.emit('get-communities');
 
         // Socket listeners
         socket.on('community-list', (list) => {
@@ -102,13 +105,16 @@ const Chat = () => {
     };
 
     const handleDeleteCommunity = (e, id) => {
+        e.preventDefault();
         e.stopPropagation();
-        Modal.confirm({
+        console.log('handleDeleteCommunity called for:', id);
+        modal.confirm({
             title: 'Delete Community',
             content: 'This will delete all messages in this community. Are you sure?',
             okText: 'Delete',
             okType: 'danger',
             onOk() {
+                console.log('Confirming deletion for:', id);
                 socket.emit('delete-community', id);
                 if (activeCommunity === id) setActiveCommunity('general');
                 message.success('Community deleted');
@@ -117,7 +123,7 @@ const Chat = () => {
     };
 
     const handleDeleteMessage = (id) => {
-        Modal.confirm({
+        modal.confirm({
             title: 'Delete Message',
             content: 'Are you sure you want to delete this message?',
             okText: 'Yes, Delete',
@@ -146,6 +152,7 @@ const Chat = () => {
 
     return (
         <div className="flex h-full bg-[#F8F9FA] overflow-hidden">
+            {contextHolder}
             {/* Sidebar */}
             <aside className="w-64 md:w-80 bg-white border-r border-gray-100 flex flex-col flex-shrink-0">
                 <div className="p-6 border-b border-gray-50 flex items-center justify-between">

@@ -143,12 +143,19 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('get-communities', () => {
+    socket.emit('community-list', communities);
+  });
+
   socket.on('delete-community', (communityId) => {
+    console.log(`Delete request for ${communityId} from ${socket.data.user?.username} (${socket.data.user?.id})`);
     const commIndex = communities.findIndex(c => c.id === communityId);
     if (commIndex !== -1) {
       const community = communities[commIndex];
       const isCreator = socket.data.user && socket.data.user.id === community.creatorId;
       const isAdmin = socket.data.user && socket.data.user.role === 'admin';
+
+      console.log(`Permission check: isCreator=${isCreator}, isAdmin=${isAdmin}`);
 
       if (isCreator || isAdmin) {
         communities.splice(commIndex, 1);
@@ -159,10 +166,15 @@ io.on('connection', (socket) => {
           fs.writeFileSync(CHAT_HISTORY_FILE, JSON.stringify(chatHistory, null, 2));
           io.emit('community-list', communities);
           io.emit('chat-history', chatHistory);
+          console.log(`Community ${communityId} deleted successfully`);
         } catch (err) {
           console.error('Error deleting community:', err);
         }
+      } else {
+        console.log(`Delete blocked: Forbidden for user ${socket.data.user?.id}`);
       }
+    } else {
+      console.log(`Delete failed: Community ${communityId} not found`);
     }
   });
 
