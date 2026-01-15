@@ -69,10 +69,34 @@ const createUser = async (name, email, username, password, role = 'user') => {
     return userWithoutPassword;
 };
 
+const setChatLock = async (userId, pin) => {
+    const users = loadUsers();
+    const userIndex = users.findIndex(u => u.id === userId);
+    if (userIndex === -1) throw new Error('User not found');
+
+    if (pin) {
+        const salt = await bcrypt.genSalt(10);
+        users[userIndex].chatLock = await bcrypt.hash(pin, salt);
+    } else {
+        delete users[userIndex].chatLock;
+    }
+
+    saveUsers(users);
+    return true;
+};
+
+const verifyChatLock = async (userId, pin) => {
+    const user = findUserById(userId);
+    if (!user || !user.chatLock) return false;
+    return await bcrypt.compare(pin, user.chatLock);
+};
+
 module.exports = {
     loadUsers,
     saveUsers,
     findUserByUsername,
     findUserById,
-    createUser
+    createUser,
+    setChatLock,
+    verifyChatLock
 };

@@ -22,6 +22,48 @@ api.interceptors.request.use(
     }
 );
 
+// Add a response interceptor to handle token refresh
+api.interceptors.response.use(
+    (response) => response,
+    async (error) => {
+        const originalRequest = error.config;
+
+        // If the error is 401 and we haven't retried yet
+        if (error.response?.status === 401 && !originalRequest._retry) {
+            originalRequest._retry = true;
+
+            try {
+                const refreshToken = localStorage.getItem('refreshToken');
+                if (!refreshToken) {
+                    throw new Error('No refresh token available');
+                }
+
+                // Call refresh endpoint
+                const response = await axios.post(`${API_URL}/api/auth/refresh`, {
+                    refreshToken
+                });
+
+                if (response.data.success) {
+                    const newToken = response.data.token;
+                    localStorage.setItem('token', newToken);
+
+                    // Update header and retry original request
+                    originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
+                    return api(originalRequest);
+                }
+            } catch (refreshError) {
+                // Refresh failed or no refresh token, logout user
+                localStorage.removeItem('token');
+                localStorage.removeItem('refreshToken');
+                window.location.href = '/login';
+                return Promise.reject(refreshError);
+            }
+        }
+
+        return Promise.reject(error);
+    }
+);
+
 export const fileAPI = {
     // Get Identity
     getIdentity: async () => {
@@ -107,9 +149,19 @@ export const fileAPI = {
         return response.data;
     },
 
-    // Helper to get preview URL
+    // Help to get preview URL
     getPreviewUrl: (systemName, currentPath = '') => {
         const pathPart = currentPath ? `${currentPath}/` : '';
         return `${API_URL}/uploads/${pathPart}${systemName}`;
+    },
+
+    // Chat Lock methods
+    setChatLock: async (pin) => {
+        const response = await api.post('/api/auth/chat-lock/set', { pin });
+        return response.data;
+    },
+    verifyChatLock: async (pin) => {
+        const response = await api.post('/api/auth/chat-lock/verify', { pin });
+        return response.data;
     }
 };

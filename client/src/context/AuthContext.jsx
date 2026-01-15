@@ -10,6 +10,22 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [token, setToken] = useState(localStorage.getItem('token'));
+    const [refreshToken, setRefreshToken] = useState(localStorage.getItem('refreshToken'));
+
+    const logout = () => {
+        setToken(null);
+        setRefreshToken(null);
+        setUser(null);
+    };
+
+    useEffect(() => {
+        // If we have a regular token but no refresh token, it's an old session.
+        // Force logout to ensure they get both tokens on next login.
+        if (token && !refreshToken) {
+            console.log('Old session detected (missing refresh token). Logging out...');
+            logout();
+        }
+    }, []);
 
     useEffect(() => {
         if (token) {
@@ -22,9 +38,17 @@ export const AuthProvider = ({ children }) => {
             delete axios.defaults.headers.common['Authorization'];
             updateSocketAuth(null);
             setUser(null);
-            setLoading(false);
+            if (!refreshToken) setLoading(false);
         }
     }, [token]);
+
+    useEffect(() => {
+        if (refreshToken) {
+            localStorage.setItem('refreshToken', refreshToken);
+        } else {
+            localStorage.removeItem('refreshToken');
+        }
+    }, [refreshToken]);
 
     const fetchUser = async () => {
         try {
@@ -38,15 +62,10 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    const login = (newToken, userData) => {
+    const login = (newToken, userData, newRefreshToken) => {
         setToken(newToken);
+        if (newRefreshToken) setRefreshToken(newRefreshToken);
         setUser(userData);
-    };
-
-    const logout = () => {
-        setToken(null);
-        setUser(null);
-        localStorage.removeItem('token');
     };
 
     const value = {

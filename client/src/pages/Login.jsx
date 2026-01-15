@@ -20,7 +20,7 @@ const Login = () => {
         try {
             const response = await axios.post('/api/auth/login', { username, password });
             if (response.data.success) {
-                login(response.data.token, response.data.user);
+                login(response.data.token, response.data.user, response.data.refreshToken);
                 navigate('/dashboard');
             }
         } catch (err) {

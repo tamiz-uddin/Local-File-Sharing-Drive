@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, User, MessageCircle, Clock, Hash, Trash2 } from 'lucide-react';
+import { Send, User, MessageCircle, Clock, Hash, Trash2, Lock as LockIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Modal, message, Input } from 'antd';
 import { socket } from '../services/socket';
 import { fileAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import ChatLock from '../components/ChatLock';
 
 const Chat = () => {
     const [messages, setMessages] = useState([]);
@@ -14,6 +15,9 @@ const Chat = () => {
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [isRequestsModalOpen, setIsRequestsModalOpen] = useState(false);
     const [newCommName, setNewCommName] = useState('');
+    const [isLocked, setIsLocked] = useState(true);
+    const [isLockModalOpen, setIsLockModalOpen] = useState(false);
+    const [lockPin, setLockPin] = useState('');
 
     const [modal, contextHolder] = Modal.useModal();
 
@@ -137,12 +141,29 @@ const Chat = () => {
         });
     };
 
+    const handleSetLock = async () => {
+        try {
+            await fileAPI.setChatLock(lockPin);
+            message.success(lockPin ? 'Chat lock enabled' : 'Chat lock disabled');
+            setIsLockModalOpen(false);
+            setLockPin('');
+            // Optional: Refresh user data to update hasChatLock
+            window.location.reload();
+        } catch (err) {
+            message.error('Failed to update chat lock');
+        }
+    };
+
     const formatTime = (isoString) => {
         const date = new Date(isoString);
         return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     };
 
     if (!user) return null;
+
+    if (user.hasChatLock && isLocked) {
+        return <ChatLock onUnlock={() => setIsLocked(false)} />;
+    }
 
     const currentComm = communities.find(c => c.id === activeCommunity) || communities[0];
     const isMember = currentComm?.members?.includes(user?.id);
@@ -206,6 +227,13 @@ const Chat = () => {
                             <span className="text-[10px] text-gray-500 truncate">{user?.ip}</span>
                         </div>
                     </div>
+                    <button
+                        onClick={() => setIsLockModalOpen(true)}
+                        className="mt-4 w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-gray-100 text-gray-600 text-xs font-bold hover:bg-gray-200 transition-colors"
+                    >
+                        <LockIcon size={14} />
+                        {user.hasChatLock ? 'Change Lock' : 'Enable Lock'}
+                    </button>
                 </div>
             </aside>
 
@@ -413,6 +441,32 @@ const Chat = () => {
                             </div>
                         ))
                     )}
+                </div>
+            </Modal>
+
+            {/* Chat Lock Settings Modal */}
+            <Modal
+                title={user.hasChatLock ? "Update Chat Lock" : "Enable Chat Lock"}
+                open={isLockModalOpen}
+                onOk={handleSetLock}
+                onCancel={() => setIsLockModalOpen(false)}
+                okText="Save"
+                centered
+            >
+                <div className="py-4 space-y-4">
+                    <p className="text-sm text-gray-500">
+                        {user.hasChatLock
+                            ? "Enter a new 4-digit PIN to update your lock, or leave it empty to disable the lock."
+                            : "Set a 4-digit PIN to protect your chat messages. This PIN will be required every time you open the chat."}
+                    </p>
+                    <Input
+                        type="password"
+                        placeholder="Enter 4-digit PIN"
+                        value={lockPin}
+                        onChange={e => setLockPin(e.target.value)}
+                        maxLength={4}
+                        className="text-center text-2xl tracking-[0.5em] py-3 rounded-xl"
+                    />
                 </div>
             </Modal>
         </div>

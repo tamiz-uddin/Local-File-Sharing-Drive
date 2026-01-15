@@ -142,7 +142,7 @@ const Dashboard = () => {
                 >
                     <h3 className="text-lg font-semibold text-gray-800 mb-6">Storage Distribution</h3>
                     <div className="h-64 w-full">
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width="100%" height="100%" minHeight={250}>
                             <PieChart>
                                 <Pie
                                     data={pieData}
@@ -182,7 +182,7 @@ const Dashboard = () => {
                 >
                     <h3 className="text-lg font-semibold text-gray-800 mb-6">File Types</h3>
                     <div className="h-64 w-full">
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width="100%" height="100%" minHeight={250}>
                             <BarChart data={barData}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />

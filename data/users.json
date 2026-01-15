@@ -1,14 +1,5 @@
 [
   {
-    "id": "1768216327110",
-    "name": "Tamiz Uddin",
-    "email": "tamizrabbi@gmail.com",
-    "username": "tamizuddin",
-    "password": "$2b$10$KRiT8ErNDQa.G7TaBuS1uuYRonrpqI5cy4ibf3nVmW/kQ7AlQAlWm",
-    "role": "admin",
-    "createdAt": "2026-01-12T11:12:07.110Z"
-  },
-  {
     "id": "1768217603912",
     "name": "Test",
     "email": "test@gmail.com",
@@ -33,6 +24,45 @@
     "username": "Bi9",
     "password": "$2b$10$ZypiCZc.Z0iV5TZXObvBIeGpwb0mNtGthAlbbSqcyqI7xKew77hOC",
     "role": "user",
-    "createdAt": "2026-01-13T10:02:50.231Z"
+    "createdAt": "2026-01-13T10:02:50.231Z",
+    "chatLock": "$2b$10$3TNAr5QvBZ8obILRaHjgee02GftLxSpfhD2fGzbAMVwtdPM/FXOX2"
+  },
+  {
+    "id": "1768301113506",
+    "name": "Shihab",
+    "email": "abdullalshihab@gmail.com",
+    "username": "shihab_141",
+    "password": "$2b$10$AC99tV7jgN6hc6XpdiN4zufTXaIof4OU7xfiPBobonRaaYYgJoQ/.",
+    "role": "user",
+    "createdAt": "2026-01-13T10:45:13.506Z",
+    "chatLock": "$2b$10$YAAMjPrCX2n/XaS9c7PZxeyuv4jn.BPohOpUFcTJfX4NNG.xHnbmm"
+  },
+  {
+    "id": "1768301433534",
+    "name": "naimul Haque",
+    "email": "naimul.kodevioltd@gmail.com",
+    "username": "naimul_haque",
+    "password": "$2b$10$NBUA1oqkLG6MBuDtUsPWRODQn8JSWzPsk60MU4G8tfoO8a9JzH9Ie",
+    "role": "user",
+    "createdAt": "2026-01-13T10:50:33.534Z"
+  },
+  {
+    "id": "1768470179478",
+    "name": "gandu",
+    "email": "gandu@gmail.com",
+    "username": "gandu",
+    "password": "$2b$10$zQM8.X9/QlzPI1OZdSz1Nu2Z/eEniT9nlyPzmZsQbWU38F9/AHIum",
+    "role": "user",
+    "createdAt": "2026-01-15T09:42:59.478Z"
+  },
+  {
+    "id": "1768216327110",
+    "name": "Tamiz Uddin",
+    "email": "tamizrabbi@gmail.com",
+    "username": "tamizuddin",
+    "password": "$2b$10$qQUHUlS1B1e30KALf0Cmt.Bo.JY/ugthxATLXnJjw202LM/2SSWV.",
+    "role": "admin",
+    "createdAt": "2026-01-15T12:46:21.231Z",
+    "chatLock": "$2b$10$B1lwre2IPJbmrYlDhGbSJ.6zBPC7JYTKmns.dYIj1ji/QDpL9Xnfy"
   }
 ]

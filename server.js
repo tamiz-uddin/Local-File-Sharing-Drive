@@ -339,10 +339,28 @@ app.use('/api', (req, res, next) => {
 
 // Identity Endpoint
 app.get('/api/me', (req, res) => {
+  if (req.user) {
+    const { findUserById } = require('./utils/userUtils');
+    const userData = findUserById(req.user.id);
+    if (userData) {
+      return res.json({
+        ip: req.clientIp,
+        isAdmin: req.isAdmin,
+        user: {
+          id: userData.id,
+          username: userData.username,
+          name: userData.name,
+          role: userData.role,
+          hasChatLock: !!userData.chatLock
+        }
+      });
+    }
+  }
+
   res.json({
     ip: req.clientIp,
     isAdmin: req.isAdmin,
-    user: req.user
+    user: null
   });
 });
 
