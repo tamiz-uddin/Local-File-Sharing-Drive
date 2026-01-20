@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { HardDrive, Plus, HelpCircle, Search, Settings, LayoutDashboard, Menu, X, MessageCircle, CloudCog, LogOut } from 'lucide-react';
-import { Outlet, NavLink, useLocation } from 'react-router-dom';
+import { HardDrive, Plus, HelpCircle, Search, Settings, LayoutDashboard, Menu, X, MessageCircle, CloudCog, LogOut, LogIn, Shield, Lock } from 'lucide-react';
+import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Modal, Input, message } from 'antd';
 import { useAuth } from '../context/AuthContext';
+import { fileAPI } from '../services/api';
 
 const MainLayout = ({
     storageInfo,
@@ -11,10 +13,29 @@ const MainLayout = ({
     setSearchQuery
 }) => {
     const location = useLocation();
+    const navigate = useNavigate();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const { user, logout } = useAuth();
+    const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
+    const [adminPassword, setAdminPassword] = useState('');
+    const [loading, setLoading] = useState(false);
+
+    const { user, logout, login, setIsLocalAdmin } = useAuth();
     // Check if we are in Drive view
     const isDriveActive = location.pathname.startsWith('/my-drive');
+
+    const handleAdminLogin = async () => {
+        const ADMIN_ACCESS_PASS = 'admin123'; // Constant password as requested
+
+        if (adminPassword === ADMIN_ACCESS_PASS) {
+            setIsLocalAdmin(true);
+            message.success('Admin access granted');
+            setIsAdminModalOpen(false);
+            setAdminPassword('');
+            navigate('/dashboard');
+        } else {
+            message.error('Invalid admin password');
+        }
+    };
 
     const sidebarVariants = {
         hidden: { x: -300, opacity: 0 },
@@ -23,6 +44,34 @@ const MainLayout = ({
 
     return (
         <div className="flex h-screen bg-[#F0F2F5] font-sans selection:bg-blue-100 selection:text-blue-900">
+            {/* Admin Password Modal */}
+            <Modal
+                title={
+                    <div className="flex items-center gap-2">
+                        <Shield className="text-blue-600" size={20} />
+                        <span>Admin Access</span>
+                    </div>
+                }
+                open={isAdminModalOpen}
+                onOk={handleAdminLogin}
+                onCancel={() => setIsAdminModalOpen(false)}
+                okText="Unlock Admin"
+                confirmLoading={loading}
+                centered
+            >
+                <div className="py-4">
+                    <p className="text-sm text-gray-500 mb-4">Enter the administrative password to gain full control.</p>
+                    <Input.Password
+                        placeholder="Enter admin password"
+                        value={adminPassword}
+                        onChange={(e) => setAdminPassword(e.target.value)}
+                        onPressEnter={handleAdminLogin}
+                        prefix={<Lock size={16} className="text-gray-400" />}
+                        autoFocus
+                    />
+                </div>
+            </Modal>
+
             {/* Mobile Menu Backdrop */}
             <AnimatePresence>
                 {isMobileMenuOpen && (
@@ -84,14 +133,14 @@ const MainLayout = ({
                         <HardDrive size={20} />
                         <span className="font-medium">My Drive</span>
                     </NavLink>
-
+                    {/* 
                     <NavLink
                         to="/chat"
                         className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${isActive ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'text-gray-600 hover:bg-white hover:shadow-sm'}`}
                     >
                         <MessageCircle size={20} />
                         <span className="font-medium">Chat</span>
-                    </NavLink>
+                    </NavLink> */}
                 </nav>
 
                 {/* Storage Widget */}
@@ -115,22 +164,46 @@ const MainLayout = ({
                     {/* User Identity Widget */}
                     <div className="pt-3 border-t border-gray-200">
                         <div className="flex items-center justify-between">
-                            <div className="text-xs text-gray-500">
-                                <p className="font-semibold text-gray-700">User: {user?.username || 'Loading...'}</p>
+                            <div className="text-xs text-gray-500 min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                    <p className="font-semibold text-gray-700 truncate">
+                                        {user?.role === 'guest' ? 'Guest Access' : `User: ${user?.username || 'Loading...'}`}
+                                    </p>
+                                    {user?.role !== 'admin' && (
+                                        <button
+                                            onClick={() => setIsAdminModalOpen(true)}
+                                            className="text-gray-300 hover:text-blue-500 transition-colors flex-shrink-0"
+                                            title="Login as Admin"
+                                        >
+                                            <Shield size={12} />
+                                        </button>
+                                    )}
+                                </div>
                                 {user?.role === 'admin' ? (
-                                    <span className="text-green-600 font-bold">Admin Mode</span>
+                                    <span className="text-green-600 font-bold text-[10px]">Admin Mode</span>
+                                ) : user?.role === 'guest' ? (
+                                    <span className="text-gray-400 font-medium text-[10px] truncate">{user?.ip}</span>
                                 ) : (
-                                    <span className="text-blue-600 font-medium capitalize">{user?.role || 'User'}</span>
+                                    <span className="text-blue-600 font-medium capitalize text-[10px]">{user?.role || 'User'}</span>
                                 )}
                             </div>
-                            <button
-                                onClick={logout}
-                                className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                                title="Logout"
-                            >
-                                <LogOut size={18} />
-                            </button>
-
+                            {user?.role === 'guest' ? (
+                                <NavLink
+                                    to="/login"
+                                    className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-all"
+                                    title="Login"
+                                >
+                                    <LogIn size={18} />
+                                </NavLink>
+                            ) : (
+                                <button
+                                    onClick={logout}
+                                    className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                                    title="Logout"
+                                >
+                                    <LogOut size={18} />
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>

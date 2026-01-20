@@ -11,10 +11,12 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
     const [token, setToken] = useState(localStorage.getItem('token'));
     const [refreshToken, setRefreshToken] = useState(localStorage.getItem('refreshToken'));
+    const [isLocalAdmin, setIsLocalAdmin] = useState(localStorage.getItem('isLocalAdmin') === 'true');
 
     const logout = () => {
         setToken(null);
         setRefreshToken(null);
+        setIsLocalAdmin(false);
         setUser(null);
     };
 
@@ -38,9 +40,10 @@ export const AuthProvider = ({ children }) => {
             delete axios.defaults.headers.common['Authorization'];
             updateSocketAuth(null);
             setUser(null);
-            if (!refreshToken) setLoading(false);
+            if (!refreshToken && !isLocalAdmin) setLoading(false);
+            if (isLocalAdmin) fetchUser(); // Still fetch guest/me info to get IP
         }
-    }, [token]);
+    }, [token, isLocalAdmin]);
 
     useEffect(() => {
         if (refreshToken) {
@@ -50,10 +53,23 @@ export const AuthProvider = ({ children }) => {
         }
     }, [refreshToken]);
 
+    useEffect(() => {
+        localStorage.setItem('isLocalAdmin', isLocalAdmin);
+        if (isLocalAdmin) {
+            axios.defaults.headers.common['x-admin-auth'] = 'admin';
+        } else {
+            delete axios.defaults.headers.common['x-admin-auth'];
+        }
+    }, [isLocalAdmin]);
+
     const fetchUser = async () => {
         try {
             const response = await axios.get('/api/me');
-            setUser({ ...response.data.user, ip: response.data.ip });
+            let userData = { ...response.data.user, ip: response.data.ip };
+            if (isLocalAdmin) {
+                userData.role = 'admin';
+            }
+            setUser(userData);
         } catch (error) {
             console.error('Failed to fetch user', error);
             logout();
@@ -74,7 +90,9 @@ export const AuthProvider = ({ children }) => {
         token,
         login,
         logout,
-        isAuthenticated: !!user
+        isLocalAdmin,
+        setIsLocalAdmin,
+        isAuthenticated: (!!user && user.role !== 'guest') || isLocalAdmin
     };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

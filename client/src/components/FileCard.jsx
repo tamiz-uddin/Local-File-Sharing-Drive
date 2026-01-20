@@ -100,9 +100,13 @@ const FileCard = ({ file, currentPath = '', viewMode, user, onDownload, onDelete
     const { icon: FileIcon, color, bg } = getFileDesign(file.type);
 
     // Permission Check
-    const isOwner = user && (file.ownerId === user.id || file.ownerUsername === user.username);
-    const isIpMatch = file.ownerIp === user?.ip; // Fallback for legacy
-    const canEdit = user?.role === 'admin' || isOwner || isIpMatch;
+    const isOwner = user && user.id && file.ownerId === user.id;
+    const isIdentifiedOwner = user && user.username && file.ownerUsername === user.username;
+    const isIpMatch = user?.ip && file.ownerIp === user.ip;
+    const isGuestOwner = user?.role === 'guest' && isIpMatch;
+
+    // Admin or Owner or IP Match (for guests/legacy)
+    const canEdit = user?.role === 'admin' || isOwner || isIdentifiedOwner || isIpMatch;
     const canDownload = file?.isDirectory ? false : true;
     const handleDoubleClick = () => {
         if (isFolder) {
@@ -257,7 +261,9 @@ const FileCard = ({ file, currentPath = '', viewMode, user, onDownload, onDelete
                             <span className="text-[10px] text-gray-400 font-medium flex items-center gap-1.5 truncate">
                                 <span>{isFolder ? formatDate(file.createdDate) : formatSize(file.size)}</span>
                                 <span className="w-1 h-1 bg-gray-300 rounded-full flex-shrink-0"></span>
-                                <span className="truncate">By {file.ownerUsername || 'Guest'}</span>
+                                <span className="truncate">
+                                    {isGuestOwner ? 'You (Guest)' : (isOwner || isIdentifiedOwner) ? 'You' : (file.ownerUsername || file.ownerName || `Guest (${file.ownerIp?.split('.').pop() || '...'})`)}
+                                </span>
                             </span>
                         </div>
                     )}

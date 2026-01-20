@@ -189,12 +189,12 @@ io.on('connection', (socket) => {
     socket.join(communityId);
     console.log(`Socket ${socket.id} joined room: ${communityId}`);
 
-    // Security: Only allow members to see history
-    const userId = socket.data.user ? socket.data.user.id : null;
+    // Security: Only allow members to see history (or general room)
+    const userId = socket.data.user ? socket.data.user.id : (socket.data.ip ? 'guest_' + socket.data.ip.replace(/\./g, '_') : null);
     const community = communities.find(c => c.id === communityId);
-    const isMember = community?.members?.includes(userId);
+    const isMember = community?.members?.includes(userId) || communityId === 'general';
 
-    if (isMember || communityId === 'general') {
+    if (isMember) {
       const roomHistory = chatHistory.filter(m => m.communityId === communityId || (!m.communityId && communityId === 'general'));
       socket.emit('chat-history', roomHistory);
     } else {
@@ -204,8 +204,8 @@ io.on('connection', (socket) => {
 
   socket.on('get-chat-history', (communityId) => {
     const community = communities.find(c => c.id === communityId);
-    const userId = socket.data.user ? socket.data.user.id : null;
-    const isMember = community?.members?.includes(userId);
+    const userId = socket.data.user ? socket.data.user.id : (socket.data.ip ? 'guest_' + socket.data.ip.replace(/\./g, '_') : null);
+    const isMember = community?.members?.includes(userId) || communityId === 'general';
 
     if (isMember) {
       const roomHistory = chatHistory.filter(m => m.communityId === communityId || (!m.communityId && communityId === 'general'));
@@ -269,9 +269,11 @@ io.on('connection', (socket) => {
 
     if (!community) return;
 
-    // Security: Must be a member to chat
-    const userId = socket.data.user ? socket.data.user.id : null;
-    if (!community.members?.includes(userId)) {
+    // Security: Must be a member to chat (or general room guest)
+    const userId = socket.data.user ? socket.data.user.id : (socket.data.ip ? 'guest_' + socket.data.ip.replace(/\./g, '_') : null);
+    const isMember = community.members?.includes(userId) || communityId === 'general';
+
+    if (!isMember) {
       return console.log(`Blocked message from ${userId} in ${communityId} (Not a member)`);
     }
 
@@ -339,28 +341,38 @@ app.use('/api', (req, res, next) => {
 
 // Identity Endpoint
 app.get('/api/me', (req, res) => {
+  const { findUserById } = require('./utils/userUtils');
+  let userData = null;
+
   if (req.user) {
-    const { findUserById } = require('./utils/userUtils');
-    const userData = findUserById(req.user.id);
-    if (userData) {
-      return res.json({
-        ip: req.clientIp,
-        isAdmin: req.isAdmin,
-        user: {
-          id: userData.id,
-          username: userData.username,
-          name: userData.name,
-          role: userData.role,
-          hasChatLock: !!userData.chatLock
-        }
-      });
-    }
+    userData = findUserById(req.user.id);
   }
 
+  if (userData) {
+    return res.json({
+      ip: req.clientIp,
+      isAdmin: req.isAdmin,
+      user: {
+        id: userData.id,
+        username: userData.username,
+        name: userData.name,
+        role: userData.role,
+        hasChatLock: !!userData.chatLock
+      }
+    });
+  }
+
+  // Guest response
   res.json({
     ip: req.clientIp,
-    isAdmin: req.isAdmin,
-    user: null
+    isAdmin: false,
+    user: {
+      id: 'guest_' + req.clientIp.replace(/\./g, '_'),
+      username: 'Guest_' + req.clientIp.split('.').pop(),
+      name: 'Guest (' + req.clientIp + ')',
+      role: 'guest',
+      hasChatLock: false
+    }
   });
 });
 

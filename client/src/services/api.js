@@ -15,6 +15,12 @@ api.interceptors.request.use(
         if (token) {
             config.headers['Authorization'] = `Bearer ${token}`;
         }
+
+        const isLocalAdmin = localStorage.getItem('isLocalAdmin') === 'true';
+        if (isLocalAdmin) {
+            config.headers['x-admin-auth'] = 'admin';
+        }
+
         return config;
     },
     (error) => {
@@ -163,5 +169,11 @@ export const fileAPI = {
     verifyChatLock: async (pin) => {
         const response = await api.post('/api/auth/chat-lock/verify', { pin });
         return response.data;
+    },
+    adminLogin: async (password) => {
+        const response = await api.post('/api/auth/admin-login', { password });
+        return response.data;
     }
 };
+
+export { api };

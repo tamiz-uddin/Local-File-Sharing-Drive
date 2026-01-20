@@ -76,6 +76,46 @@ router.post('/login', async (req, res) => {
     }
 });
 
+// Quick Admin Login (with constant password)
+router.post('/admin-login', async (req, res) => {
+    try {
+        const { password } = req.body;
+        const ADMIN_ACCESS_PASS = process.env.ADMIN_ACCESS_PASSWORD || 'admin123';
+
+        if (password !== ADMIN_ACCESS_PASS) {
+            return res.status(400).json({ success: false, message: 'Invalid admin access password' });
+        }
+
+        // Find the first admin user
+        const { getAllUsers } = require('../utils/userUtils');
+        const adminUser = getAllUsers().find(u => u.role === 'admin');
+
+        if (!adminUser) {
+            return res.status(404).json({ success: false, message: 'No admin user found in system' });
+        }
+
+        const payload = { id: adminUser.id, username: adminUser.username, role: adminUser.role, name: adminUser.name };
+
+        const accessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: '15m' });
+        const refreshToken = jwt.sign(payload, REFRESH_TOKEN_SECRET, { expiresIn: '7d' });
+
+        res.json({
+            success: true,
+            token: accessToken,
+            refreshToken,
+            user: {
+                id: adminUser.id,
+                username: adminUser.username,
+                role: adminUser.role,
+                name: adminUser.name
+            }
+        });
+    } catch (error) {
+        console.error('Admin login error:', error);
+        res.status(500).json({ success: false, message: 'Server error during admin login' });
+    }
+});
+
 // Refresh Token
 router.post('/refresh', (req, res) => {
     const { refreshToken } = req.body;

@@ -19,10 +19,8 @@ function AppContent() {
   const { user, isAuthenticated, loading, logout } = useAuth();
 
   useEffect(() => {
-    if (isAuthenticated) {
-      loadStorageInfo();
-    }
-  }, [isAuthenticated]);
+    loadStorageInfo();
+  }, []);
 
   const loadStorageInfo = async () => {
     try {
@@ -67,18 +65,14 @@ function AppContent() {
       <Route path="/register" element={!isAuthenticated ? <Register /> : <Navigate to="/dashboard" />} />
 
       <Route path="/" element={
-        isAuthenticated ? (
-          <MainLayout
-            storageInfo={storageInfo}
-            handleUpload={handleSidebarUpload}
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            user={{ ...user, isAdmin: user?.role === 'admin' }}
-            toggleAdmin={logout} // Use logout for now as placeholder for account management
-          />
-        ) : (
-          <Navigate to="/login" />
-        )
+        <MainLayout
+          storageInfo={storageInfo}
+          handleUpload={handleSidebarUpload}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          user={user}
+          toggleAdmin={logout} // Use logout for now as placeholder for account management
+        />
       }>
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<Dashboard />} />

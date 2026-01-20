@@ -64,5 +64,59 @@
     "role": "admin",
     "createdAt": "2026-01-15T12:46:21.231Z",
     "chatLock": "$2b$10$B1lwre2IPJbmrYlDhGbSJ.6zBPC7JYTKmns.dYIj1ji/QDpL9Xnfy"
+  },
+  {
+    "id": "1768641760077",
+    "name": "gghg",
+    "email": "ddgdgd@gmail.com",
+    "username": "fhfh",
+    "password": "$2b$10$uCllKsAE1Jjdz4mnrXCXGeawfMvJhCGPRjwSUNovADfQUcsS4L3yG",
+    "role": "user",
+    "createdAt": "2026-01-17T09:22:40.077Z"
+  },
+  {
+    "id": "1768641792192",
+    "name": "erertwer",
+    "email": "ada@gmail.com",
+    "username": "ffff1",
+    "password": "$2b$10$GmwVg2DPiw.YE/gzlVXQEest0zgv1FAycXmBY3SE55RJg67y.Upde",
+    "role": "user",
+    "createdAt": "2026-01-17T09:23:12.192Z"
+  },
+  {
+    "id": "1768729403841",
+    "name": "abc",
+    "email": "abc@gmail.com",
+    "username": "1234",
+    "password": "$2b$10$h4e0QHlPxO9clU7b0VvH4usQjoKzuN/MXzpJ.mj5xSY0sKDzMLCOe",
+    "role": "user",
+    "createdAt": "2026-01-18T09:43:23.841Z"
+  },
+  {
+    "id": "1768731474425",
+    "name": "Ahsan Habib",
+    "email": "ahsanhabib@gmail.com",
+    "username": "ahsanhabibkodevio",
+    "password": "$2b$10$tyst6HQoq4PRQ61jN5fVpeht9mWa1LDbePUhvmFWVPrqWNavltY8y",
+    "role": "user",
+    "createdAt": "2026-01-18T10:17:54.425Z"
+  },
+  {
+    "id": "1768732295335",
+    "name": "1234",
+    "email": "a123@gmail.com",
+    "username": "12345",
+    "password": "$2b$10$Sl4kd7QsCO6Mwa4R5eqSN.8hzh2XktKXmg7MGCKtdD8csayLwdJl6",
+    "role": "user",
+    "createdAt": "2026-01-18T10:31:35.335Z"
+  },
+  {
+    "id": "1768732503178",
+    "name": "ffff",
+    "email": "as@gmail.com",
+    "username": "123456",
+    "password": "$2b$10$ozwFxEit6R4BZywG6cTff.3tM4Nzmx.1t3ns5sQCGBBXk/9iRaVPW",
+    "role": "user",
+    "createdAt": "2026-01-18T10:35:03.178Z"
   }
 ]

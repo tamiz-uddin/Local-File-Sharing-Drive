@@ -159,18 +159,22 @@ const Chat = () => {
         return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     };
 
-    if (!user) return null;
+    if (!user) return (
+        <div className="flex-1 flex items-center justify-center bg-[#F8F9FA]">
+            <div className="spinner-lg"></div>
+        </div>
+    );
 
     if (user.hasChatLock && isLocked) {
         return <ChatLock onUnlock={() => setIsLocked(false)} />;
     }
 
     const currentComm = communities.find(c => c.id === activeCommunity) || communities[0];
-    const isMember = currentComm?.members?.includes(user?.id);
+    const isMember = currentComm?.members?.includes(user?.id) || (activeCommunity === 'general' && user?.role === 'guest') || (activeCommunity === 'general' && user?.id);
     const isPending = currentComm?.pendingRequests?.some(r => r.id === user?.id);
     const isAdminOfComm = user?.role === 'admin' || user?.id === currentComm?.creatorId;
     const pendingCount = currentComm?.pendingRequests?.length || 0;
-
+    return null;
     return (
         <div className="flex h-full bg-[#F8F9FA] overflow-hidden">
             {contextHolder}
